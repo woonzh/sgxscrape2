@@ -7,9 +7,14 @@ from selenium.webdriver.common.by import By
 import time
 import pandas as pd
 
+import dbConnector as db
+
 chromepath='D:\stuff\chromedriver\chromedriver.exe'
 
-driver = webdriver.Chrome(chromepath)
+options=webdriver.ChromeOptions()
+options.add_argument('headless')
+driver = webdriver.Chrome(chromepath, chrome_options=options)
+driver.maximize_window()
 mainURL="https://www2.sgx.com/securities/securities-prices"
 
 def retrieveText(lst, attribute="innerText"):
@@ -66,7 +71,7 @@ def crawlSummary():
     
     option=driver.find_element_by_class_name("vertical-scrolling-bar")
     
-    for j in range(2):#55
+    for j in range(55):#55
         actionChains = ActionChains(driver)
         actionChains.click_and_hold(option).move_by_offset(0,7.5).release().perform()
         time.sleep(0.2)
@@ -80,7 +85,22 @@ def crawlSummary():
     
     return df, lst
 
+def processData(df):
+    vals=pd.DataFrame()
+    vals['name']=df['names']
+    vals['price']=df['last price']
+    
+    for i in range(len(vals)):
+        try:
+            a=float(vals.iloc[i,1])
+        except:
+            vals.iloc[i,1]=0
+    return vals
+
 df, df2=crawlSummary()
+#
+vals=processData(df)
+db.updateDB(vals)
 
 #url='https://www2.sgx.com/securities/stock-screener?page=1&code=500'
 #url='https://sgx-premium.wealthmsi.com/company-tearsheet.html?page=1&code=500#https%3A%2F%2Fwww2.sgx.com%2Fsecurities%2Fstock-screener%3Fpage%3D1%26code%3D500'
