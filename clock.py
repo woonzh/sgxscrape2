@@ -22,7 +22,7 @@ sched = BlockingScheduler()
     
 @sched.scheduled_job('interval', minute=5)
 def scheduled_job():
-    msg=master.updateSGXPrice()
+    msg=master.updateSGXPriceBackground()
     
     print('success')
 
