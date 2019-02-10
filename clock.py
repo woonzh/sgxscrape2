@@ -14,16 +14,16 @@ sched = BlockingScheduler()
 #def timed_job():
 #    print('This job is run every week.')
 
-#@sched.scheduled_job('cron', day_of_week='mon-fri', hour=12)
-#def scheduled_job():
-#    msg=master.updateSGXPrice()
-#    
-#    print('success')
-    
-@sched.scheduled_job('interval', minute=5)
+@sched.scheduled_job('cron', day_of_week='mon-fri', hour=10)
 def scheduled_job():
-    msg=master.updateSGXPriceBackground()
+    master.updateSGXPriceBackground()
     
     print('success')
+    
+#@sched.scheduled_job('interval', minute=5)
+#def scheduled_job():
+#    msg=master.updateSGXPriceBackground()
+#    
+#    print('success')
 
 sched.start()
