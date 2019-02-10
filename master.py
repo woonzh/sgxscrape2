@@ -32,4 +32,4 @@ def getCompanyInfo():
     companyFullInfo=sgx.collateCompanyInfo(df)
     return companyFullInfo
 
-#store=updateSGXPrice()
+print('runned')
