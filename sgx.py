@@ -14,10 +14,11 @@ chromepath='chromedriver(linux)/chromedriver'
 
 options=webdriver.ChromeOptions()
 #options.add_argument('headless')
+options.binary_location = GOOGLE_CHROME_BIN
 options.add_argument('--headless')
 options.add_argument('--disable-gpu')
 options.add_argument('--no-sandbox')
-driver = webdriver.Chrome(chromepath, chrome_options=options)
+driver = webdriver.Chrome(CHROMEDRIVER_PATH, chrome_options=options)
 driver.maximize_window()
 mainURL="https://www2.sgx.com/securities/securities-prices"
 
