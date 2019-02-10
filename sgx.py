@@ -6,6 +6,7 @@ from selenium.webdriver.common.by import By
 
 import time
 import pandas as pd
+import os
 
 import dbConnector as db
 
@@ -14,6 +15,8 @@ chromepath='chromedriver(linux)/chromedriver'
 
 options=webdriver.ChromeOptions()
 #options.add_argument('headless')
+GOOGLE_CHROME_BIN = os.environ.get('GOOGLE_CHROME_BIN', None)
+CHROMEDRIVER_PATH= os.environ.get('CHROMEDRIVER_PATH', None)
 options.binary_location = GOOGLE_CHROME_BIN
 options.add_argument('--headless')
 options.add_argument('--disable-gpu')
