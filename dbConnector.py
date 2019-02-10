@@ -117,7 +117,7 @@ def updateCompanyRows(lst, connList):
 
 def createNewRow(connList):
     curDate=datetime.now()
-    colName="date%s%s%s"%(curDate.day, curDate.month, curDate.year)
+    colName="date%s%s%s"%(format(curDate.day, '02d'), format(curDate.month, '02d'), curDate.year)
     query="ALTER TABLE price ADD %s float"%(colName)
     
     print(query)

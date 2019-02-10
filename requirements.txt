@@ -1,0 +1,5 @@
+APScheduler
+selenium
+pandas
+urllib
+psycopg2

@@ -73,7 +73,10 @@ def crawlSummary():
     
     for j in range(55):#55
         actionChains = ActionChains(driver)
-        actionChains.click_and_hold(option).move_by_offset(0,7.5).release().perform()
+        #org 8
+        # 8.5 694
+        #9, 10, 12 13 14 15 16 694
+        actionChains.click_and_hold(option).move_by_offset(0,16).release().perform()
         time.sleep(0.2)
         
     #    new_height = driver.execute_script("return arguments[0].scrollHeight", cont)
@@ -247,11 +250,11 @@ def collateCompanyInfo(comList, fname='companyInfo.csv'):
     
     return store
 
-start=time.time()
-df, df2=crawlSummary()
+#start=time.time()
+#df, df2=crawlSummary()
 #
 #vals=processData(df)
 #db.updateDB(vals)
 
-companyFullInfo=collateCompanyInfo(df)
-    
+#companyFullInfo=collateCompanyInfo(df)
+#driver.quit()
