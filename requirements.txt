@@ -1,4 +1,4 @@
-APScheduler
+APScheduler==3.0.0
 selenium
 pandas
 urllib3
