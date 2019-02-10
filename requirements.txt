@@ -3,3 +3,5 @@ selenium
 pandas
 urllib3
 psycopg2
+rq
+redis

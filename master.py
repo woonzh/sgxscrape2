@@ -7,6 +7,8 @@ Created on Sun Feb 10 15:50:07 2019
 
 import sgx
 import dbConnector as db
+from rq import Queue
+from worker import conn
 
 import time
 
@@ -25,7 +27,12 @@ def updateSGXPrice():
     db.updateDB(vals)
     cur, elapsed=getTime(cur)
     print('updated %s stocks to db in %s secs'%(str(len(df)), elapsed))
-    return df, df2, vals
+#    return df, df2, vals
+
+def updateSGXPriceBackground():
+    q = Queue(connection=conn)
+    result=q.enqueue(updateSGXPrice)
+    print(result)
     
 def getCompanyInfo():
     df, df2=sgx.crawlSummary()
