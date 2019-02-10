@@ -1,5 +1,5 @@
 APScheduler
 selenium
 pandas
-urllib
+urllib3
 psycopg2
