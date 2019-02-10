@@ -39,4 +39,4 @@ def getCompanyInfo():
     companyFullInfo=sgx.collateCompanyInfo(df)
     return companyFullInfo
 
-print('runned')
+print('runne')
