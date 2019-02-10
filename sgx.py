@@ -9,7 +9,7 @@ import pandas as pd
 
 import dbConnector as db
 
-chromepath='D:\stuff\chromedriver\chromedriver.exe'
+chromepath='chromedriver\chromedriver.exe'
 
 options=webdriver.ChromeOptions()
 options.add_argument('headless')
