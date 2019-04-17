@@ -10,19 +10,29 @@ import os
 
 import dbConnector as db
 
-#chromepath='chromedriver/chromedriver.exe'
-chromepath='chromedriver(linux)/chromedriver'
+version='windows'
 
+if version =='windows':
+    chromepath='chromedriver/chromedriver.exe'
+
+else:
+    chromepath='chromedriver(linux)/chromedriver'
+    
+capabilities = webdriver.DesiredCapabilities.CHROME
 options=webdriver.ChromeOptions()
-#options.add_argument('headless')
-GOOGLE_CHROME_BIN = os.environ.get('GOOGLE_CHROME_BIN', None)
-CHROMEDRIVER_PATH= os.environ.get('CHROMEDRIVER_PATH', None)
-options.binary_location = GOOGLE_CHROME_BIN
-options.add_argument('--headless')
-options.add_argument('--disable-gpu')
-options.add_argument('--no-sandbox')
-driver = webdriver.Chrome(CHROMEDRIVER_PATH, chrome_options=options)
+#options.add_argument('--headless')
+driver = webdriver.Chrome(chromepath, chrome_options=options)
 driver.maximize_window()
+
+#options.add_argument('headless')
+#GOOGLE_CHROME_BIN = os.environ.get('GOOGLE_CHROME_BIN', None)
+#CHROMEDRIVER_PATH= os.environ.get('CHROMEDRIVER_PATH', None)
+#options.binary_location = GOOGLE_CHROME_BIN
+#options.add_argument('--headless')
+#options.add_argument('--disable-gpu')
+#options.add_argument('--no-sandbox')
+#driver = webdriver.Chrome(CHROMEDRIVER_PATH, chrome_options=options)
+#driver.maximize_window()
 mainURL="https://www2.sgx.com/securities/securities-prices"
 
 def retrieveText(lst, attribute="innerText"):
@@ -148,7 +158,48 @@ def getCompanyInfo(name, url):
     #
     driver.execute_script("window.scrollBy(0,900)")
     #
-    driver.switch_to.frame(driver.find_element_by_tag_name("iframe"))
+#    driver.switch_to.frame(driver.find_element_by_tag_name("iframe"))
+    
+    info=driver.find_element_by_xpath("""//div[@data-tabs-data="overview"]""").find_element_by_xpath("""//div[@class="sgx-content-table-scroll-container"]""").find_element_by_xpath("""//tbody""")
+    th=info.find_elements_by_xpath("""//th""")
+    td=info.find_elements_by_xpath("""//td[@class="sgx-content-table-cell--right-align"]""")
+    
+    th2=[]
+    for i in th:
+        text=i.get_attribute('innerText')
+        if text!='':
+            th2.append(text)
+    
+    td2=[]
+    for i in td:
+        text=i.get_attribute('innerText')
+        if text!='':
+            td2.append(text)
+
+    headerDict={
+        'openPrice':'Previous Open Price',
+        'high_low':'Previous Day High/Low'
+            }
+    headers=list(headerDict)
+    
+    df=pd.DataFrame()
+    df['name']=[name]
+    store={}
+    
+    for i in headerDict:
+        header=headerDict[i]
+        df[i]=['-']
+        found=False
+        count=0
+        while found == False and count<len(th2):
+            if th2[count]==header:
+                df[i]=[td2[count]]
+                del th2[count]
+                del td2[count]
+                found=True
+            count+=1
+    
+    return df
     
     overviewDict={
         'openPrice':"""//td[@data-bind="text: companyInfo.openPrice, formatNonZeroValue: 'dollars'"]""",
@@ -194,38 +245,38 @@ def getCompanyInfo(name, url):
         'dividend':"""//td[@data-bind="text: dividendPrice, formatNonZeroValue: 'cents'"]"""
             }
     
-    store={}
-    processedStore={}
-    storeDF=pd.DataFrame()
-    storeDF['name']=[name]
-    
-    for j in allDict:
-        oneDict=allDict[j]
-        tem={}
-        tem2={}
-        for i in oneDict:
-            try:
-                info=driver.find_element_by_xpath(oneDict[i]).get_attribute('innerText')
-            except:
-                info='-'
-            tem[i]=info
-            tem2[i]=processString(info)
-            storeDF[i]=[tem2[i]]
-        store[j]=tem
-        processedStore[j]=tem2
-    
-    dates=driver.find_elements_by_xpath(dividendsDict['date'])
-    dividends=driver.find_elements_by_xpath(dividendsDict['dividend'])
-    
-    dividendList=pd.DataFrame(columns=['date', 'dividend'])
-    for i in range(len(dates)):
-        date=dates[i].get_attribute('innerText')
-        dividend=dividends[i].get_attribute('innerText')
-        dividendList.loc[i]=[date, dividend]
-        if i == 0:
-            storeDF['dividend']=dividend
-        
-    return storeDF, store, processedStore, dividendList
+#    store={}
+#    processedStore={}
+#    storeDF=pd.DataFrame()
+#    storeDF['name']=[name]
+#    
+#    for j in allDict:
+#        oneDict=allDict[j]
+#        tem={}
+#        tem2={}
+#        for i in oneDict:
+#            try:
+#                info=driver.find_element_by_xpath(oneDict[i]).get_attribute('innerText')
+#            except:
+#                info='-'
+#            tem[i]=info
+#            tem2[i]=processString(info)
+#            storeDF[i]=[tem2[i]]
+#        store[j]=tem
+#        processedStore[j]=tem2
+#    
+#    dates=driver.find_elements_by_xpath(dividendsDict['date'])
+#    dividends=driver.find_elements_by_xpath(dividendsDict['dividend'])
+#    
+#    dividendList=pd.DataFrame(columns=['date', 'dividend'])
+#    for i in range(len(dates)):
+#        date=dates[i].get_attribute('innerText')
+#        dividend=dividends[i].get_attribute('innerText')
+#        dividendList.loc[i]=[date, dividend]
+#        if i == 0:
+#            storeDF['dividend']=dividend
+#        
+#    return storeDF, store, processedStore, dividendList
 
 def getTime(prev):
     cur=time.time()
@@ -258,11 +309,16 @@ def collateCompanyInfo(comList, fname='companyInfo.csv'):
     
     return store
 
-#start=time.time()
+start=time.time()
 #df, df2=crawlSummary()
-#
+
+#df=df.reset_index(drop=True)
+
 #vals=processData(df)
 #db.updateDB(vals)
 
-#companyFullInfo=collateCompanyInfo(df)
+test='https://www2.sgx.com/securities/equities/D05'
+store=getCompanyInfo('test', test)
+
+#companyFullInfo=collateCompanyInfo(df.loc[[0,1]])
 #driver.quit()

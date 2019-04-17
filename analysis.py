@@ -46,6 +46,7 @@ def featuresEngineering(df):
     enterpriseVal=df['enterpriseValue']
     debt=df['debt']
     ebita=df['ebita']
+    ebit=df['EBIT']
     
     
     #margin
@@ -65,6 +66,8 @@ def featuresEngineering(df):
     #ROE
     df['roe']=[x/(y+z-a) if (x!=0 and y!=0 and z!=0 and a!=0) else 0 \
       for x, y, z, a in zip(income, cash, assets, debt)]
+    
+    df['aquirer multiple']=[x/y if (x!=0 and y!=0) else 0 for x, y in zip(ebit, enterpriseVal) ]
     
     return df
 
@@ -112,12 +115,13 @@ def plotKMeans(df, clusters=1):
     plt.scatter(cluster_centers[:, 0], cluster_centers[:, 1], color = "k")
     plt.show()
     
-def runNeural(df):
-    graph=tf.graph()
-    with graph.as_default():
+#def runNeural(df):
+#    graph=tf.graph()
+#    with graph.as_default():
         
 
 file='companyInfo.csv'
+newFile='companyInfo2.csv'
 filedir='logs'
 metadata = 'D:\stuff\scrapy\sgx\logs\metadata.txt'
 pca = PCA(n_components=3,#len(list(dfProcess)),
@@ -128,6 +132,8 @@ clf = LocalOutlierFactor(contamination=0.3)
 
 dfMain=dfCleaner(pd.read_csv(file), ['name', 'prevCloseDate'])
 dfNew=featuresEngineering(dfMain)
+dfNew.to_csv(newFile, index=False)
+
 df=dfNew[['name', 'openPrice', 'close', 'dividend', 'pricebookvalue','new PE ratio', 'margin', 'newevebita', 'roe']]
 df2=removeNull(df, [4,5,6,7])
 dfProcess=df2[['dividend', 'pricebookvalue','new PE ratio', 'margin', 'newevebita', 'roe']]
@@ -136,11 +142,14 @@ df_pca = pcaFiles(dfProcess)
 
 newdf2=removeOutlier(df_pca, df2)
 newdfProcess=newdf2[['dividend', 'pricebookvalue','new PE ratio', 'margin', 'newevebita', 'roe']]
-newdf2.to_csv(metadata, sep='\t')
+newdf2.to_csv()
 
 df_pca = pcaFiles(newdfProcess)
 
 plotKMeans(df_pca)
+
+compare=dfNew[['name','peratio', 'new PE ratio', 'enterpriseValue', 'EBIT','aquirer multiple', 'ebita', 'netincome', 'roe']]
+compare=compare[(compare['aquirer multiple']!=0) & (compare['EBIT']>0)]
 
 #tf_data = tf.Variable(df_pca)
 #
