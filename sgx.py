@@ -7,6 +7,7 @@ from selenium.webdriver.common.by import By
 import time
 import pandas as pd
 import os
+import argparse
 
 import dbConnector as db
 
@@ -20,7 +21,7 @@ else:
     
 capabilities = webdriver.DesiredCapabilities.CHROME
 options=webdriver.ChromeOptions()
-#options.add_argument('--headless')
+options.add_argument('--headless')
 driver = webdriver.Chrome(chromepath, chrome_options=options)
 driver.maximize_window()
 
@@ -154,37 +155,88 @@ def getCompanyInfo(name, url):
     except:
         print('click failed')
     #
-    time.sleep(1)
+    time.sleep(2)
     #
-    driver.execute_script("window.scrollBy(0,900)")
+    driver.execute_script("window.scrollBy(0,700)")
+    time.sleep(2)
+#    return driver
     #
 #    driver.switch_to.frame(driver.find_element_by_tag_name("iframe"))
     
-    info=driver.find_element_by_xpath("""//div[@data-tabs-data="overview"]""").find_element_by_xpath("""//div[@class="sgx-content-table-scroll-container"]""").find_element_by_xpath("""//tbody""")
-    th=info.find_elements_by_xpath("""//th""")
-    td=info.find_elements_by_xpath("""//td[@class="sgx-content-table-cell--right-align"]""")
+    headerDict={
+        'openPrice':'Previous Open Price',
+        'high_low':'Previous Close',
+        'close':'Previous Close',
+        'prevCloseDate':'Previous Close Date',
+        'marketCap':'Total Market Cap',
+        'sharesOutstanding':'Shares Outstanding',
+        'float':'Float',
+        'normalizedEPS':'Normalised Diluted EPS',
+        'mthvwap':'Average 3-month Volume',
+        'unadjVWAP':'Unadj. 6-month VWAP',
+        'adjVWAP':'Adj. 6-month VWAP',
+        'peratio':'P/E Ratio',
+        'price/Sales':'Price/Sales',
+        'price/CF':'Price/CF',
+        'pricebookvalue':'Price/Book Value',
+        'dividend':'Dividend Yield',
+        'divident_5_yr_avg':'Dividend Yield 5-yr avg',
+        'debt':'Net Debt',
+        'long term debt/equity':'Long Term Debt / Equity',
+        'enterpriseValue':'Enterprise Value',
+        'assets':'Total Assets',
+        'cash':'Cash & Short Term Investments',
+        'roe':'Return on Equity (ROE)',
+        'roa':'Return on Assets (ROA)',
+        'capEx':'CapEx',
+        'EBIT':'',
+        'revenue':'Total Revenue',
+        'operating_income': 'Operating Income',
+        'operating_margin':'Operating Margin',
+        'netincome':'Net Income',
+        'net_profit_margin':'Net Profit Margin',
+        'revenue_per_share_5_yr_growth':'Revenue/share 5 yr growth',
+        'eps_per_share_5_yr_growth':'EPS 5 yr growth',
+        'roe':'Return on Equity (ROE)',
+        'roa':'Return on Assets (ROA)',
+        'ebita':''
+            }
+    
+    cont=True
+    counter=0
+    while cont==True:
+        try:
+            info=driver.find_element_by_xpath("""//div[@data-tabs-data="overview"]""").find_element_by_xpath("""//div[@class="sgx-content-table-scroll-container"]""").find_element_by_xpath("""//tbody""")
+            th=info.find_elements_by_xpath("""//th""")
+            td=info.find_elements_by_xpath("""//td[@class="sgx-content-table-cell--right-align"]""")
+            cont=False
+        except:
+            if counter<4:
+                driver.execute_script("window.scrollBy(0,100)")
+                time.sleep(2)
+                counter+=1
+            else:
+                df=pd.DataFrame()
+                df['name']=[name]
+                for i in headerDict:
+                    df[i]=['-']
+                return df
     
     th2=[]
     for i in th:
         text=i.get_attribute('innerText')
         if text!='':
-            th2.append(text)
+            texts=text.split('\n')
+            th2.append(texts[0])
     
     td2=[]
     for i in td:
         text=i.get_attribute('innerText')
         if text!='':
             td2.append(text)
-
-    headerDict={
-        'openPrice':'Previous Open Price',
-        'high_low':'Previous Day High/Low'
-            }
-    headers=list(headerDict)
     
     df=pd.DataFrame()
     df['name']=[name]
-    store={}
     
     for i in headerDict:
         header=headerDict[i]
@@ -282,14 +334,17 @@ def getTime(prev):
     cur=time.time()
     return cur, str((time.time()-prev)/60)
 
-def collateCompanyInfo(comList, fname='companyInfo.csv'):
+def collateCompanyInfo(comList, fname='companyInfo.csv', start=0):
     cur, elapsedTime=getTime(start)
     
     print('got list of companies in %s mins'%(elapsedTime))
     
-    store=''
+    if start!=0:
+        store=pd.read_csv(fname)
+    else:
+        store=''
     
-    for i in range(len(comList)):
+    for i in range(start, len(comList)):
         name=comList.iloc[i,0]
         url=comList.iloc[i,4]
         cur, elapsedTime=getTime(cur)
@@ -297,28 +352,56 @@ def collateCompanyInfo(comList, fname='companyInfo.csv'):
         cur=time.time()
         companyinfo=getCompanyInfo(name, url)
         if i ==0:
-            store=companyinfo[0]
+            store=companyinfo
+            print(store)
         else:
-            store.loc[i]=companyinfo[0].loc[0]
+            store.loc[i]=companyinfo.loc[0]
             print(store.loc[i])
+        
+        store.to_csv(fname, index=False)
     
     cur, elapsedTime=getTime(start)        
     print('total time: %s mins'%(elapsedTime))
     
-    store.to_csv(fname, index=False)
-    
     return store
 
-start=time.time()
-#df, df2=crawlSummary()
+def extractSummary(fname):
+    df, df2=crawlSummary()
+    df=df.reset_index(drop=True)
+    df.to_csv(summaryFName, index=False)
+    
+    return df, df2
 
-#df=df.reset_index(drop=True)
+#variables
+summaryFName='summary.csv'
+
+#controllers
+summaryBool=False
+
+start=time.time()
+
+if summaryBool==False:
+    try:
+        df=pd.read_csv(summaryFName)
+    except:
+        df, df2=extractSummary(summaryFName)
+else:
+    df, df2=extractSummary(summaryFName)
 
 #vals=processData(df)
 #db.updateDB(vals)
 
-test='https://www2.sgx.com/securities/equities/D05'
-store=getCompanyInfo('test', test)
+#test='https://www2.sgx.com/securities/equities/J36'
+#store=getCompanyInfo('test', test)
 
-#companyFullInfo=collateCompanyInfo(df.loc[[0,1]])
-#driver.quit()
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser("simple_example")
+    parser.add_argument("--index", help="index to start.", type=int, default=0)
+    args = parser.parse_args()
+    print(args.index)
+    companyFullInfo=collateCompanyInfo(df, start=args.index)
+else:
+    index=0
+    companyFullInfo=collateCompanyInfo(df, start=index)
+
+driver.quit()

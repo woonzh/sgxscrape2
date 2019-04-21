@@ -19,55 +19,80 @@ import matplotlib.pyplot as plt
 def replace(string, old, new):
     string.replace(old, new)
 
-def dfCleaner(df, exceptions=[]):
+def dfCleaner(df, cleanCol='prevCloseDate', exceptions=[]):
+    dfNew=df[df[cleanCol]!='-']
+    dfDel=df[df[cleanCol]=='-']
+    print('%s with empty values deleted.'%(len(dfDel)))
+    
+    df=dfNew.copy(deep=True)
+    
+    summary=pd.DataFrame(columns=['name','count', 'percen'])
+    
     for header in list(df):
         if header not in exceptions:
 #            print(header)
             lst=list(df[header])
             newLst=[]
-            for i in lst:
-                newVal=i.replace('S$', '')
-                try:
-                    newVal=float(newVal)
-                except:
-                    newVal=0
+            for i in lst:                    
+                if 'M' in i or 'B' in i:
+                    newVal=i.replace(',', '')
+                    if 'M' in newVal:
+                        newVal=newVal.replace('M', '')
+                        try:
+                            newVal=float(newVal)*1000000
+                        except:
+                            newVal=0
+                    else:
+                        newVal=newVal.replace('B', '')
+                        try:
+                            newVal=float(newVal)*1000000000
+                        except:
+                            newVal=0
+                        
+                else:
+                    newVal=i.replace('USD', '')
+                    newVal=i.replace('SGD', '')
+                    try:
+                        newVal=float(newVal)
+                    except:
+                        newVal=0
                 
                 newLst.append(newVal)
             df[header]=newLst
-    return df
+            errorCount=sum(df[header]==0)
+            summary.loc[len(summary)]=[header, errorCount,round(errorCount/len(df),1)]
+    return df, dfDel, dfNew, summary
 
 def featuresEngineering(df):
-    rev=df['revenue']
-    outstandingshares=df['sharesOutstanding']
+    eps=df['normalizedEPS']
+    price=df['openPrice']
     income=df['netincome']
-    closePrice=df['close']
     cash=df['cash']
     assets=df['assets']
-    enterpriseVal=df['enterpriseValue']
     debt=df['debt']
-    ebita=df['ebita']
-    ebit=df['EBIT']
-    
-    
-    #margin
-    df['margin']=[x/y if (x!=0 and y!=0) else 0 for x, y in zip(income, rev)]
+    enterpriseVal=df['enterpriseValue']
+    sharesOutstanding=df['sharesOutstanding']
     
     #new PEratio
-    df['new PE ratio']=[z/(x/y) if (x!=0 and y!=0 and z!=0) else 0 for x, y, z in zip(income, outstandingshares, closePrice)]
+    df['new PE ratio']=[x/(y/z) if (x!=0 and y!=0 and z!=0) else 0 for x, y,z in zip(price,income, sharesOutstanding)]
     
-    #pricebook value
-    df['pbvratio']=[c/((x+y+z-a)/b) if (x!=0 and y!=0 and z!=0 and a!=0 and b!=0 and c!=0) else 0 \
-      for x, y, z, a, b, c in zip(cash, assets, enterpriseVal, debt, outstandingshares, closePrice)]
-    
-    #enterprice value over ebita
-    newebita=[x if x!=0 else y for x, y in zip(ebita, income)]
-    df['newevebita']=[x/y if (x!=0 and y!=0) else 0 for x, y in zip(enterpriseVal, newebita)]
-    
-    #ROE
-    df['roe']=[x/(y+z-a) if (x!=0 and y!=0 and z!=0 and a!=0) else 0 \
+#    #pricebook value
+#    df['pbvratio']=[c/((x+y+z-a)/b) if (x!=0 and y!=0 and z!=0 and a!=0 and b!=0 and c!=0) else 0 \
+#      for x, y, z, a, b, c in zip(cash, assets, enterpriseVal, debt, outstandingshares, closePrice)]
+#    
+#    #enterprice value over ebita
+#    newebita=[x if x!=0 else y for x, y in zip(ebita, income)]
+#    df['newevebita']=[x/y if (x!=0 and y!=0) else 0 for x, y in zip(enterpriseVal, newebita)]
+#    
+#    #ROE
+    df['new roe']=[x/(y+z-a) if (x!=0 and y!=0 and z!=0 and a!=0) else 0 \
       for x, y, z, a in zip(income, cash, assets, debt)]
-    
-    df['aquirer multiple']=[x/y if (x!=0 and y!=0) else 0 for x, y in zip(ebit, enterpriseVal) ]
+
+#    #ROA
+    df['new roa']=[x/y if (x!=0 and y!=0) else 0 \
+      for x, y in zip(income, assets)]
+#    #aquirer multiple
+    df['aquirer multiple']=[x/y if (x!=0 and y!=0) else 0 for x, y in zip(income, enterpriseVal) ]
     
     return df
 
@@ -130,26 +155,35 @@ pca = PCA(n_components=3,#len(list(dfProcess)),
          )
 clf = LocalOutlierFactor(contamination=0.3)
 
-dfMain=dfCleaner(pd.read_csv(file), ['name', 'prevCloseDate'])
+details=pd.read_csv('summary.csv')
+df=pd.read_csv(file)
+
+dfMain, dfDel, dfCheck, summary=dfCleaner(pd.read_csv(file), exceptions=['name', 'prevCloseDate', 'float'])
 dfNew=featuresEngineering(dfMain)
+
 dfNew.to_csv(newFile, index=False)
+dfNew=dfNew.set_index(dfNew['name'], drop=True)
 
-df=dfNew[['name', 'openPrice', 'close', 'dividend', 'pricebookvalue','new PE ratio', 'margin', 'newevebita', 'roe']]
-df2=removeNull(df, [4,5,6,7])
-dfProcess=df2[['dividend', 'pricebookvalue','new PE ratio', 'margin', 'newevebita', 'roe']]
+dfCompare=dfNew[['name', 'openPrice', 'normalizedEPS', 'peratio', 'new PE ratio', 'netincome', 'operating_margin', 'net_profit_margin','aquirer multiple','cash', 'assets', 'roe', 'new roe', 'roa', 'new roa', 'price/Sales', 'price/CF','long term debt/equity', 'revenue_per_share_5_yr_growth', 'eps_per_share_5_yr_growth']]
+a=dfCompare[dfCompare['peratio']>0]
+#
 
-df_pca = pcaFiles(dfProcess)
-
-newdf2=removeOutlier(df_pca, df2)
-newdfProcess=newdf2[['dividend', 'pricebookvalue','new PE ratio', 'margin', 'newevebita', 'roe']]
-newdf2.to_csv()
-
-df_pca = pcaFiles(newdfProcess)
-
-plotKMeans(df_pca)
-
-compare=dfNew[['name','peratio', 'new PE ratio', 'enterpriseValue', 'EBIT','aquirer multiple', 'ebita', 'netincome', 'roe']]
-compare=compare[(compare['aquirer multiple']!=0) & (compare['EBIT']>0)]
+#df=dfNew[['name', 'openPrice', 'close', 'dividend', 'pricebookvalue','new PE ratio', 'margin', 'newevebita', 'roe']]
+#df2=removeNull(df, [4,5,6,7])
+#dfProcess=df2[['dividend', 'pricebookvalue','new PE ratio', 'margin', 'newevebita', 'roe']]
+#
+#df_pca = pcaFiles(dfProcess)
+#
+#newdf2=removeOutlier(df_pca, df2)
+#newdfProcess=newdf2[['dividend', 'pricebookvalue','new PE ratio', 'margin', 'newevebita', 'roe']]
+#newdf2.to_csv()
+#
+#df_pca = pcaFiles(newdfProcess)
+#
+#plotKMeans(df_pca)
+#
+#compare=dfNew[['name','peratio', 'new PE ratio', 'enterpriseValue', 'EBIT','aquirer multiple', 'ebita', 'netincome', 'roe']]
+#compare=compare[(compare['aquirer multiple']!=0) & (compare['EBIT']>0)]
 
 #tf_data = tf.Variable(df_pca)
 #
