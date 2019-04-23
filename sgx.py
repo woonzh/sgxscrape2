@@ -10,6 +10,7 @@ import os
 import argparse
 
 import dbConnector as db
+import util
 
 version='windows'
 
@@ -35,6 +36,11 @@ driver.maximize_window()
 #driver = webdriver.Chrome(CHROMEDRIVER_PATH, chrome_options=options)
 #driver.maximize_window()
 mainURL="https://www2.sgx.com/securities/securities-prices"
+summaryFName='data/summary.csv'
+companyInfoFName='data/companyInfo.csv'
+companyUpdatedInfoFName='data/companyInfo(updated).csv'
+infoLogs='data/logs/companyInfo_'
+priceHistFName='data/priceHist.csv'
 
 def retrieveText(lst, attribute="innerText"):
     store=[]
@@ -334,7 +340,7 @@ def getTime(prev):
     cur=time.time()
     return cur, str((time.time()-prev)/60)
 
-def collateCompanyInfo(comList, fname='companyInfo.csv', start=0):
+def collateCompanyInfo(comList, fname=companyInfoFName, start=0):
     cur, elapsedTime=getTime(start)
     
     print('got list of companies in %s mins'%(elapsedTime))
@@ -372,21 +378,44 @@ def extractSummary(fname):
     
     return df, df2
 
-#variables
-summaryFName='summary.csv'
-
-#controllers
-summaryBool=False
-
-start=time.time()
-
-if summaryBool==False:
-    try:
-        df=pd.read_csv(summaryFName)
-    except:
+def getFullDetails(index=0):
+    summaryBool=False
+    if summaryBool==False:
+        try:
+            df=pd.read_csv(summaryFName)
+        except:
+                df, df2=extractSummary(summaryFName)
+    else:
         df, df2=extractSummary(summaryFName)
-else:
-    df, df2=extractSummary(summaryFName)
+
+    companyFullInfo=collateCompanyInfo(df, start=index)
+    
+def updatePriceHist(df):
+    try:
+        priceHist=pd.read_csv(priceHistFName)
+        priceHist=pd.merge(priceHist, df[['names','last price']], how='outer', left_on='name', right_on='names')
+        priceHist[util.currentDate()]=priceHist['last price']
+        priceHist.drop(['last price', 'names'], axis=1, inplace=True)
+        priceHist.to_csv(priceHistFName, index=False)
+    except:
+        priceHist=df[['names', 'last price']]
+        priceHist.columns=['name',util.currentDate()]
+        priceHist.to_csv(priceHistFName, index=False)
+    
+def updateCompanyInfo():
+    now=util.currentDate()
+    
+    df,df2=extractSummary(summaryFName)
+    
+    companyFullInfo=pd.read_csv(companyInfoFName)
+    companyFullInfo=pd.merge(companyFullInfo, df[['names','last price']], how='outer', left_on='name', right_on='names')
+    companyFullInfo['openPrice']=companyFullInfo['last price']
+    companyFullInfo.drop(['last price', 'names'], axis=1, inplace=True)
+    companyFullInfo['prevCloseDate']=[now]*len(companyFullInfo)
+    
+    companyFullInfo.to_csv(companyUpdatedInfoFName, index=False)
+    companyFullInfo.to_csv(infoLogs+now+'.csv', index=False)
+    updatePriceHist(df)
 
 #vals=processData(df)
 #db.updateDB(vals)
@@ -397,11 +426,20 @@ else:
 if __name__ == "__main__":
     parser = argparse.ArgumentParser("simple_example")
     parser.add_argument("--index", help="index to start.", type=int, default=0)
+    parser.add_argument("--function", help="0 to crawl full summary and details. 1 to crawl summary for price update.", type=int, default=0)
     args = parser.parse_args()
-    print(args.index)
-    companyFullInfo=collateCompanyInfo(df, start=args.index)
+    if args.function==0:
+        print(args.index)
+        getFullDetails(args.index)
+    else:
+        updateCompanyInfo()
+        print('to just do summary')
 else:
     index=0
-    companyFullInfo=collateCompanyInfo(df, start=index)
+    function=0
+    if function ==0:
+        getFullDetails(index)
+    else:
+        updateCompanyInfo()
 
 driver.quit()

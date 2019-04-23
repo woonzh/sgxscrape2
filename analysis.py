@@ -63,7 +63,7 @@ def dfCleaner(df, cleanCol='prevCloseDate', exceptions=[]):
             summary.loc[len(summary)]=[header, errorCount,round(errorCount/len(df),1)]
     return df, dfDel, dfNew, summary
 
-def featuresEngineering(df):
+def featuresEngineering(df, details):
     eps=df['normalizedEPS']
     price=df['openPrice']
     income=df['netincome']
@@ -94,6 +94,12 @@ def featuresEngineering(df):
 #    #aquirer multiple
     df['aquirer multiple']=[x/y if (x!=0 and y!=0) else 0 for x, y in zip(income, enterpriseVal) ]
     
+#    #aquirer multiple against price
+    df['normalized aquirer multiple']=[x/y if (x!=0 and y!=0) else 0 for x,y in zip(df['aquirer multiple'], price)]
+    
+    df=pd.merge(df, details[['names','address']], how='left',left_on='name',right_on='names')
+    
+    df=df.drop(['names'], axis=1)
     return df
 
 def removeNull(df, inclusions=[]):
@@ -139,14 +145,11 @@ def plotKMeans(df, clusters=1):
                             c=[colors[i] for i in data_labels], s=1)
     plt.scatter(cluster_centers[:, 0], cluster_centers[:, 1], color = "k")
     plt.show()
-    
-#def runNeural(df):
-#    graph=tf.graph()
-#    with graph.as_default():
         
 
-file='companyInfo.csv'
-newFile='companyInfo2.csv'
+file='data/companyInfo.csv'
+newFile='data/companyInfo(cleaned).csv'
+summaryFName='summary.csv'
 filedir='logs'
 metadata = 'D:\stuff\scrapy\sgx\logs\metadata.txt'
 pca = PCA(n_components=3,#len(list(dfProcess)),
@@ -155,17 +158,18 @@ pca = PCA(n_components=3,#len(list(dfProcess)),
          )
 clf = LocalOutlierFactor(contamination=0.3)
 
-details=pd.read_csv('summary.csv')
-df=pd.read_csv(file)
-
-dfMain, dfDel, dfCheck, summary=dfCleaner(pd.read_csv(file), exceptions=['name', 'prevCloseDate', 'float'])
-dfNew=featuresEngineering(dfMain)
-
-dfNew.to_csv(newFile, index=False)
-dfNew=dfNew.set_index(dfNew['name'], drop=True)
-
-dfCompare=dfNew[['name', 'openPrice', 'normalizedEPS', 'peratio', 'new PE ratio', 'netincome', 'operating_margin', 'net_profit_margin','aquirer multiple','cash', 'assets', 'roe', 'new roe', 'roa', 'new roa', 'price/Sales', 'price/CF','long term debt/equity', 'revenue_per_share_5_yr_growth', 'eps_per_share_5_yr_growth']]
-a=dfCompare[dfCompare['peratio']>0]
+if __name__ == "__main__":
+    details=pd.read_csv(summaryFName)
+    df=pd.read_csv(file)
+    
+    dfMain, dfDel, dfCheck, summary=dfCleaner(pd.read_csv(file), exceptions=['name', 'prevCloseDate', 'float'])
+    dfNew=featuresEngineering(dfMain, details)
+    
+    dfNew.to_csv(newFile, index=False)
+    dfNew=dfNew.set_index(dfNew['name'], drop=True)
+    
+    dfCompare=dfNew[['name', 'address','openPrice', 'normalizedEPS', 'peratio', 'new PE ratio', 'netincome', 'operating_margin', 'net_profit_margin','aquirer multiple','normalized aquirer multiple', 'cash', 'assets', 'roe', 'new roe', 'roa', 'new roa', 'price/Sales', 'price/CF','long term debt/equity', 'revenue_per_share_5_yr_growth', 'eps_per_share_5_yr_growth']]
+    a=dfCompare[(dfCompare['peratio']>0)&(dfCompare['openPrice']>0.2)]
 #
 
 #df=dfNew[['name', 'openPrice', 'close', 'dividend', 'pricebookvalue','new PE ratio', 'margin', 'newevebita', 'roe']]

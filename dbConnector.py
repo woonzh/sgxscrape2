@@ -157,7 +157,7 @@ def updateDB(df):
             return False, 'error updating / checking companies in DB'
         else:
             result, colName=createNewRow(connList)
-            result2=updatePrice(df, connList, colName)  
+            result2=updatePrice(df, connList, colName) 
     except ValueError as e:
         print(e)
         cur.close()
