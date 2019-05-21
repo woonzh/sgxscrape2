@@ -11,6 +11,7 @@ import argparse
 
 import dbConnector as db
 import util
+import analysis
 
 version='windows'
 
@@ -340,7 +341,7 @@ def getTime(prev):
     cur=time.time()
     return cur, str((time.time()-prev)/60)
 
-def collateCompanyInfo(comList, fname=companyInfoFName, start=0):
+def collateCompanyInfo(comList, fname=[companyInfoFName], start=0):
     cur, elapsedTime=getTime(start)
     
     print('got list of companies in %s mins'%(elapsedTime))
@@ -364,7 +365,8 @@ def collateCompanyInfo(comList, fname=companyInfoFName, start=0):
             store.loc[i]=companyinfo.loc[0]
             print(store.loc[i])
         
-        store.to_csv(fname, index=False)
+        for name in fname:
+            store.to_csv(name, index=False)
     
     cur, elapsedTime=getTime(start)        
     print('total time: %s mins'%(elapsedTime))
@@ -401,6 +403,21 @@ def updatePriceHist(df):
         priceHist=df[['names', 'last price']]
         priceHist.columns=['name',util.currentDate()]
         priceHist.to_csv(priceHistFName, index=False)
+        
+def isInt(val):
+    try:
+        a=float(val)
+        return True
+    except:
+        return False
+        
+def updateRatios(companyInfo):
+    ratios=[float(x)/float(y) if (isInt(x) and isInt(y)) else 1 for x, y in zip(companyInfo['last price'], companyInfo['openPrice'])]
+    colList=['marketCap','peratio','price/Sales','price/CF','price/Sales']
+    for col in colList:
+        companyInfo[col]=[float(x)*float(y) if (isInt(x)==True and isInt(y)==True) else x for x,y in zip(companyInfo[col], ratios)]
+    
+    return companyInfo
     
 def updateCompanyInfo():
     now=util.currentDate()
@@ -409,6 +426,8 @@ def updateCompanyInfo():
     
     companyFullInfo=pd.read_csv(companyInfoFName)
     companyFullInfo=pd.merge(companyFullInfo, df[['names','last price']], how='outer', left_on='name', right_on='names')
+#    return companyFullInfo
+    companyFullInfo=updateRatios(companyFullInfo)
     companyFullInfo['openPrice']=companyFullInfo['last price']
     companyFullInfo.drop(['last price', 'names'], axis=1, inplace=True)
     companyFullInfo['prevCloseDate']=[now]*len(companyFullInfo)
@@ -416,6 +435,10 @@ def updateCompanyInfo():
     companyFullInfo.to_csv(companyUpdatedInfoFName, index=False)
     companyFullInfo.to_csv(infoLogs+now+'.csv', index=False)
     updatePriceHist(df)
+    
+    results=analysis.cleanAndProcess(infoName=companyUpdatedInfoFName)
+    
+    return results
 
 #vals=processData(df)
 #db.updateDB(vals)
@@ -423,23 +446,25 @@ def updateCompanyInfo():
 #test='https://www2.sgx.com/securities/equities/J36'
 #store=getCompanyInfo('test', test)
 
-if __name__ == "__main__":
-    parser = argparse.ArgumentParser("simple_example")
-    parser.add_argument("--index", help="index to start.", type=int, default=0)
-    parser.add_argument("--function", help="0 to crawl full summary and details. 1 to crawl summary for price update.", type=int, default=0)
-    args = parser.parse_args()
-    if args.function==0:
-        print(args.index)
-        getFullDetails(args.index)
-    else:
-        updateCompanyInfo()
-        print('to just do summary')
-else:
-    index=0
-    function=0
-    if function ==0:
-        getFullDetails(index)
-    else:
-        updateCompanyInfo()
+#if __name__ == "__main__":
+#    parser = argparse.ArgumentParser("simple_example")
+#    parser.add_argument("--index", help="index to start.", type=int, default=0)
+#    parser.add_argument("--function", help="0 to crawl full summary and details. 1 to crawl summary for price update.", type=int, default=0)
+#    args = parser.parse_args()
+#    if args.function==0:
+#        print(args.index)
+#        getFullDetails(args.index)
+#    else:
+#        updateCompanyInfo()
+#        print('to just do ssummary')
+#else:
+#    index=0
+#    function=0
+#    if function ==0:
+#        getFullDetails(index)
+#    else:
+#        updateCompanyInfo()
+    
+a=updateCompanyInfo()
 
 driver.quit()

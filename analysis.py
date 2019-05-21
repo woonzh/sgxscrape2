@@ -16,6 +16,17 @@ from sklearn.cluster import KMeans
 from sklearn.neighbors import LocalOutlierFactor
 import matplotlib.pyplot as plt
 
+file='data/companyInfo(updated).csv'
+newFile='data/companyInfo(cleaned).csv'
+summaryFName='data/summary.csv'
+filedir='logs'
+metadata = 'D:\stuff\scrapy\sgx\logs\metadata.txt'
+pca = PCA(n_components=3,#len(list(dfProcess)),
+         random_state = 123,
+         svd_solver = 'auto'
+         )
+clf = LocalOutlierFactor(contamination=0.3)
+
 def replace(string, old, new):
     string.replace(old, new)
 
@@ -33,7 +44,8 @@ def dfCleaner(df, cleanCol='prevCloseDate', exceptions=[]):
 #            print(header)
             lst=list(df[header])
             newLst=[]
-            for i in lst:                    
+            for i in lst: 
+                i=str(i)                   
                 if 'M' in i or 'B' in i:
                     newVal=i.replace(',', '')
                     if 'M' in newVal:
@@ -95,7 +107,7 @@ def featuresEngineering(df, details):
     df['aquirer multiple']=[x/y if (x!=0 and y!=0) else 0 for x, y in zip(income, enterpriseVal) ]
     
 #    #aquirer multiple against price
-    df['normalized aquirer multiple']=[x/y if (x!=0 and y!=0) else 0 for x,y in zip(df['aquirer multiple'], price)]
+    df['normalized aquirer multiple']=[y/x if (x!=0 and y!=0) else 0 for x,y in zip(df['aquirer multiple'], price)]
     
     df=pd.merge(df, details[['names','address']], how='left',left_on='name',right_on='names')
     
@@ -145,31 +157,24 @@ def plotKMeans(df, clusters=1):
                             c=[colors[i] for i in data_labels], s=1)
     plt.scatter(cluster_centers[:, 0], cluster_centers[:, 1], color = "k")
     plt.show()
-        
-
-file='data/companyInfo.csv'
-newFile='data/companyInfo(cleaned).csv'
-summaryFName='summary.csv'
-filedir='logs'
-metadata = 'D:\stuff\scrapy\sgx\logs\metadata.txt'
-pca = PCA(n_components=3,#len(list(dfProcess)),
-         random_state = 123,
-         svd_solver = 'auto'
-         )
-clf = LocalOutlierFactor(contamination=0.3)
-
-if __name__ == "__main__":
-    details=pd.read_csv(summaryFName)
-    df=pd.read_csv(file)
     
-    dfMain, dfDel, dfCheck, summary=dfCleaner(pd.read_csv(file), exceptions=['name', 'prevCloseDate', 'float'])
+def cleanAndProcess(sumName=summaryFName, infoName=file, newFileName=newFile):
+    details=pd.read_csv(sumName)
+    df=pd.read_csv(infoName)
+    
+    dfMain, dfDel, dfCheck, summary=dfCleaner(df, exceptions=['name', 'prevCloseDate', 'float'])
     dfNew=featuresEngineering(dfMain, details)
     
-    dfNew.to_csv(newFile, index=False)
+    dfNew.to_csv(newFileName, index=False)
     dfNew=dfNew.set_index(dfNew['name'], drop=True)
     
     dfCompare=dfNew[['name', 'address','openPrice', 'normalizedEPS', 'peratio', 'new PE ratio', 'netincome', 'operating_margin', 'net_profit_margin','aquirer multiple','normalized aquirer multiple', 'cash', 'assets', 'roe', 'new roe', 'roa', 'new roa', 'price/Sales', 'price/CF','long term debt/equity', 'revenue_per_share_5_yr_growth', 'eps_per_share_5_yr_growth']]
     a=dfCompare[(dfCompare['peratio']>0)&(dfCompare['openPrice']>0.2)]
+    
+    return dfMain, dfDel, dfCheck, summary, dfNew, dfCompare, a
+
+if __name__ == "__main__":
+    dfMain, dfDel, dfCheck, summary, dfNew, dfCompare, a=cleanAndProcess(summaryFName, file, newFile)
 #
 
 #df=dfNew[['name', 'openPrice', 'close', 'dividend', 'pricebookvalue','new PE ratio', 'margin', 'newevebita', 'roe']]
