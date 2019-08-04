@@ -15,8 +15,9 @@ from sklearn.decomposition import PCA
 from sklearn.cluster import KMeans
 from sklearn.neighbors import LocalOutlierFactor
 import matplotlib.pyplot as plt
+import scipy.cluster.hierarchy as spc
 
-file='data/companyInfo(updated).csv'
+file='data/companyInfo.csv'
 newFile='data/companyInfo(cleaned).csv'
 summaryFName='data/summary.csv'
 filedir='logs'
@@ -86,7 +87,8 @@ def featuresEngineering(df, details):
     sharesOutstanding=df['sharesOutstanding']
     
     #new PEratio
-    df['new PE ratio']=[x/(y/z) if (x!=0 and y!=0 and z!=0) else 0 for x, y,z in zip(price,income, sharesOutstanding)]
+#    df['new PE ratio']=[x/(y/z) if (x!=0 and y!=0 and z!=0) else 0 for x, y,z in zip(price,income, sharesOutstanding)]
+    df['new PE ratio']=[x/y if (x!=0 and y!=0) else 0 for x, y in zip(price, eps)]
     
 #    #pricebook value
 #    df['pbvratio']=[c/((x+y+z-a)/b) if (x!=0 and y!=0 and z!=0 and a!=0 and b!=0 and c!=0) else 0 \
@@ -157,30 +159,129 @@ def plotKMeans(df, clusters=1):
                             c=[colors[i] for i in data_labels], s=1)
     plt.scatter(cluster_centers[:, 0], cluster_centers[:, 1], color = "k")
     plt.show()
-    
+
+#check infoName
 def cleanAndProcess(sumName=summaryFName, infoName=file, newFileName=newFile):
     details=pd.read_csv(sumName)
     df=pd.read_csv(infoName)
     
-    dfMain, dfDel, dfCheck, summary=dfCleaner(df, exceptions=['name', 'prevCloseDate', 'float'])
+    dfMain, dfDel, dfCheck, summary=dfCleaner(df, exceptions=['name', 'prevCloseDate', 'float', 'industry'])
     dfNew=featuresEngineering(dfMain, details)
     
     dfNew.to_csv(newFileName, index=False)
     dfNew=dfNew.set_index(dfNew['name'], drop=True)
     
     dfCompare=dfNew[['name', 'address','openPrice', 'normalizedEPS', 'peratio', 'new PE ratio', 'netincome', 'operating_margin', 'net_profit_margin','aquirer multiple','normalized aquirer multiple', 'cash', 'assets', 'roe', 'new roe', 'roa', 'new roa', 'price/Sales', 'price/CF','long term debt/equity', 'revenue_per_share_5_yr_growth', 'eps_per_share_5_yr_growth']]
-    a=dfCompare[(dfCompare['peratio']>0)&(dfCompare['openPrice']>0.2)]
+    a=dfCompare[(dfCompare['new PE ratio']>0)&(dfCompare['openPrice']>0.2)]
+    a['compare']=a['new PE ratio']-a['peratio']
     
     return dfMain, dfDel, dfCheck, summary, dfNew, dfCompare, a
 
+def addToMatrix(df, a, b):
+    cols=list(df)
+    indexs=list(df.index)
+    
+    if len(cols)==0:
+        df=pd.DataFrame(columns=[a])
+        df.loc[a]=[0]
+        cols=list(df)
+        indexs=list(df)
+    
+    if a not in cols:
+        df[a]=[0]*len(indexs)
+        df.loc[a]=[0]*(len(cols)+1)
+        cols=list(df)
+        indexs=list(df.index)
+    
+    if b not in cols:
+        df[b]=[0]*len(indexs)
+        df.loc[b]=[0]*(len(cols)+1)
+        cols=list(df)
+        indexs=list(df.index)
+    
+    cola=cols.index(a)
+    colb=cols.index(b)
+    indexa=indexs.index(a)
+    indexb=indexs.index(b)
+    
+    df.iloc[cola, indexb]=df.iloc[cola, indexb]+1
+    df.iloc[colb, indexa]=df.iloc[colb, indexa]+1
+    
+    return df
+
+def extractIndustries(fname=newFile):
+    df=pd.read_csv(fname)
+    industry=list(df['industry'])
+    store={}
+    dfStore=pd.DataFrame()
+    
+    for count, line in enumerate(industry):
+        tem=[x.strip() for x in str(line).split('/')]
+        for cur in tem:
+            if cur!='':
+                try:
+                    store[cur]=store[cur]+1
+                except:
+                    store[cur]=1
+                    
+                for nextCur in tem:
+                    if nextCur!=cur and nextCur!='':
+                        dfStore=addToMatrix(dfStore, cur, nextCur)
+                            
+    corr=dfStore.corr()
+
+    pdist = spc.distance.pdist(corr)
+    linkage = spc.linkage(pdist, method='complete')
+    idx = spc.fcluster(linkage, 0.5 * pdist.max(), 'distance')
+    
+    clusters=pd.DataFrame()
+    clusters['industry']=list(corr.index)
+    clusters['cluster']=list(idx)
+    
+    return store, dfStore, clusters
+
+def filterData(fname=newFile, industry=[]):
+    stats={
+        'Consumer':{
+            'peratio':1,
+            'openPrice': 0.2,
+            'net_profit_margin': 8
+                }
+            }
+    df=pd.read_csv(fname)
+    industries=[str(x) for x in df['industry']]
+    keepList=[]
+    for count, val in enumerate(industries):
+        val=[x.strip() for x in val.split('/')]
+        for ind in industry:
+            if ind in val:
+                keepList.append(count)
+                
+    df=df.loc[keepList]
+    df=df[(df['peratio']>1)&(df['openPrice']>0.2)&(df['net_profit_margin']>5)]
+    return df
+
 if __name__ == "__main__":
     dfMain, dfDel, dfCheck, summary, dfNew, dfCompare, a=cleanAndProcess(summaryFName, file, newFile)
-#
 
-#df=dfNew[['name', 'openPrice', 'close', 'dividend', 'pricebookvalue','new PE ratio', 'margin', 'newevebita', 'roe']]
-#df2=removeNull(df, [4,5,6,7])
-#dfProcess=df2[['dividend', 'pricebookvalue','new PE ratio', 'margin', 'newevebita', 'roe']]
+industries, industriesDf, clusters=extractIndustries()
+a=filterData(industry=['Services'])
+a.to_csv('to_explore.csv')
+
+#df_pca = pcaFiles(industriesDf)
+#clusters.to_csv(metadata, sep='\t')
+#tf_data = tf.Variable(df_pca)
 #
+#with tf.Session() as sess:
+#    saver = tf.train.Saver([tf_data])
+#    sess.run(tf_data.initializer)
+#    saver.save(sess, filedir+'/tf_data.ckpt')
+#    config = projector.ProjectorConfig()
+#    embedding = config.embeddings.add()
+#    embedding.tensor_name = tf_data.name
+#    embedding.metadata_path = metadata
+#    projector.visualize_embeddings(tf.summary.FileWriter(filedir), config)
+
 #df_pca = pcaFiles(dfProcess)
 #
 #newdf2=removeOutlier(df_pca, df2)

@@ -75,9 +75,15 @@ def extractData(df2):
     return df2, df
 
 def closeAlerts():
-    driver.find_element_by_xpath("//button[text()='OK']").click()
+    try:
+        driver.find_element_by_xpath("//button[text()='OK']").click()
+    except:
+        print('cannot click ok')
     time.sleep(0.1)
-    driver.find_element_by_xpath("//button[text()='Accept Cookies']").click()
+    try:
+        driver.find_element_by_xpath("//button[text()='Accept Cookies']").click()
+    except:
+        print('cannot accept cookies')
     driver.execute_script("window.scrollBy(0,300)")
     
 def crawlSummary():
@@ -178,6 +184,7 @@ def getCompanyInfo(name, url):
         'marketCap':'Total Market Cap',
         'sharesOutstanding':'Shares Outstanding',
         'float':'Float',
+        'avgVolume':'Average 3-month Volume',
         'normalizedEPS':'Normalised Diluted EPS',
         'mthvwap':'Average 3-month Volume',
         'unadjVWAP':'Unadj. 6-month VWAP',
@@ -258,6 +265,20 @@ def getCompanyInfo(name, url):
                 found=True
             count+=1
     
+    generalDict={
+        'industry':"""//span[@class="widget-stocks-header-tags-container"]//span[@class="website-tag"]"""#, """//span[@class="website-tag"]"""]
+            }
+    
+    for i in generalDict:
+        info=driver.find_elements_by_xpath(generalDict[i])
+#        print(info)
+        store=''
+        for j in range(len(info)):
+            store+=info[j].get_attribute('innerText')
+            store+=' / '
+    
+        df[i]=store
+    
     return df
     
     overviewDict={
@@ -270,7 +291,8 @@ def getCompanyInfo(name, url):
         'sharesOutstanding':"""//td[@data-bind="text: companyInfo.sharesOutstanding, formatNonZeroValue: 'volume'"]""",
         'normalizedEPS':"""//td[@data-bind="text: companyInfo.eps != null ? companyInfo.eps : '-', formatNonZeroValue: 'dollars'"]""",
         'unadjVWAP':"""//td[@data-bind="visible: !companyInfo.hasOwnProperty('volWeightedAvgPrice') || companyInfo.volWeightedAvgPrice == null"]""",
-        'adjVWAP':"""//td[@data-bind="visible: !companyInfo.hasOwnProperty('adjustedVolWeightedAvgPrice') || companyInfo.adjustedVolWeightedAvgPrice == null"]"""
+        'adjVWAP':"""//td[@data-bind="visible: !companyInfo.hasOwnProperty('adjustedVolWeightedAvgPrice') || companyInfo.adjustedVolWeightedAvgPrice == null"]""",
+        'avgVolume':"""//td[@data-bind="visible: !companyInfo.hasOwnProperty('adjustedVolWeightedAvgPrice') || companyInfo.adjustedVolWeightedAvgPrice == null"]"""
         }
     
     valuationDict={
@@ -292,6 +314,10 @@ def getCompanyInfo(name, url):
         'netincome':"""//td[@data-bind="text: companyInfo.netIncome != null ? companyInfo.netIncome : '-', formatNonZeroValue: 'millions'"]""",
         'ebita':"""//td[@data-bind="text:  companyInfo.ebitda != null ? companyInfo.ebitda : '-', formatNonZeroValue: 'millions'"]"""
         }
+    
+    generalDict={
+        'industry':"""//span[@class="widget-stocks-header-tags-container"]"""
+            }
     
     allDict={
         'overview':overviewDict,
@@ -380,8 +406,7 @@ def extractSummary(fname):
     
     return df, df2
 
-def getFullDetails(index=0):
-    summaryBool=False
+def getFullDetails(index=0, summaryBool=False):
     if summaryBool==False:
         try:
             df=pd.read_csv(summaryFName)
@@ -391,6 +416,7 @@ def getFullDetails(index=0):
         df, df2=extractSummary(summaryFName)
 
     companyFullInfo=collateCompanyInfo(df, start=index)
+    results=analysis.cleanAndProcess(infoName=companyInfoFName)
     
 def updatePriceHist(df):
     try:
@@ -446,25 +472,26 @@ def updateCompanyInfo():
 #test='https://www2.sgx.com/securities/equities/J36'
 #store=getCompanyInfo('test', test)
 
-#if __name__ == "__main__":
-#    parser = argparse.ArgumentParser("simple_example")
-#    parser.add_argument("--index", help="index to start.", type=int, default=0)
-#    parser.add_argument("--function", help="0 to crawl full summary and details. 1 to crawl summary for price update.", type=int, default=0)
-#    args = parser.parse_args()
-#    if args.function==0:
-#        print(args.index)
-#        getFullDetails(args.index)
-#    else:
-#        updateCompanyInfo()
-#        print('to just do ssummary')
-#else:
-#    index=0
-#    function=0
-#    if function ==0:
-#        getFullDetails(index)
-#    else:
-#        updateCompanyInfo()
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser("simple_example")
+    parser.add_argument("--index", help="index to start.", type=int, default=0)
+    parser.add_argument("--function", help="0 to crawl full summary and details. 1 to crawl summary for price update.", type=int, default=0)
+    parser.add_argument("--summaryBool", help="0 to crawl re-crawl summary as well. 1 to not re-crawl summary", type=int, default=1)
+    args = parser.parse_args()
+    if args.function==0:
+        print(args.index)
+        getFullDetails(args.index, args.summaryBool==0)
+    else:
+        results=updateCompanyInfo()
+        print('to just do ssummary')
+else:
+    index=0
+    function=1
+    if function ==0:
+        getFullDetails(index)
+    else:
+        updateCompanyInfo()
     
-a=updateCompanyInfo()
+#a=updateCompanyInfo()
 
 driver.quit()
