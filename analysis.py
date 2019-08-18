@@ -85,6 +85,7 @@ def featuresEngineering(df, details):
     debt=df['debt']
     enterpriseVal=df['enterpriseValue']
     sharesOutstanding=df['sharesOutstanding']
+    floatv=[float(x.split('%')[0])/100 if x!='-' else 0 for x in list(df['float'])]
     
     #new PEratio
 #    df['new PE ratio']=[x/(y/z) if (x!=0 and y!=0 and z!=0) else 0 for x, y,z in zip(price,income, sharesOutstanding)]
@@ -110,6 +111,9 @@ def featuresEngineering(df, details):
     
 #    #aquirer multiple against price
     df['normalized aquirer multiple']=[y/x if (x!=0 and y!=0) else 0 for x,y in zip(df['aquirer multiple'], price)]
+    
+    # get the % of shares traded
+    df['volume traded %']=[x/(z*y) if (x!=0 and y!=0) else 0 for x,y, z in zip(df['avgVolume'], sharesOutstanding, floatv)]
     
     df=pd.merge(df, details[['names','address']], how='left',left_on='name',right_on='names')
     
@@ -258,7 +262,7 @@ def filterData(fname=newFile, industry=[]):
                 keepList.append(count)
                 
     df=df.loc[keepList]
-    df=df[(df['peratio']>1)&(df['openPrice']>0.2)&(df['net_profit_margin']>5)]
+    df=df[(df['peratio']>1)&(df['openPrice']>0.2)&(df['net_profit_margin']>5)&(df['volume traded %']>0.01)]
     return df
 
 if __name__ == "__main__":

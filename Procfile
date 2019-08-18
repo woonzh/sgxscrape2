@@ -1,1 +1,1 @@
-scheduler: python clock.py
+web: gunicorn mccpAPI:app

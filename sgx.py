@@ -493,5 +493,6 @@ else:
         updateCompanyInfo()
     
 #a=updateCompanyInfo()
+#df,df2=extractSummary(summaryFName)
 
 driver.quit()
